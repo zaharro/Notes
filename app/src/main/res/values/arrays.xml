@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="titles">
+        <item>@string/title1</item>
+        <item>@string/title2</item>
+        <item>@string/title3</item>
+    </string-array>
+    <string-array name="descriptions">
+        <item>@string/description1</item>
+        <item>@string/description2</item>
+        <item>@string/description3</item>
+    </string-array>
+
+</resources>

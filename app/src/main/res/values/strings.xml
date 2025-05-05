@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">Заметки</string>
+
+    <string name="title1">Заметка 1</string>
+    <string name="title2">Заметка 2</string>
+    <string name="title3">Заметка 3</string>
+
+
+    <string name="description1">Приветствуем Вас в Заметках! </string>
+    <string name="description2">Нажмите "+" для добавления заметки</string>
+    <string name="description3">Нажмите "Очистить" для удаления заметки</string>
+
+
+    <string name="update">Обновить заметку</string>
+    <string name="delete">Удалить заметку</string>
+    <string name="clear">Удалить все заметки</string>
+    <string name="add">Добавить</string>
+
+</resources>
