@@ -30,7 +30,7 @@ public class MyAdapter extends RecyclerView.Adapter<MyAdapter.ViewHolder> {
     public MyAdapter(CardSource dataSource, Activity activity) {
         this.dataSource = dataSource;
         this.activity = activity;
-    }
+           }
 
     @NonNull
     @Override

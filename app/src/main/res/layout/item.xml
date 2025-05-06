@@ -30,6 +30,15 @@
             android:layout_width="match_parent"
             android:layout_height="300dp"
             android:textSize="@dimen/textDescription" />
+        
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="3px"
+            android:background="@color/black"/>
+
+
+
+
 
 
     </LinearLayout>

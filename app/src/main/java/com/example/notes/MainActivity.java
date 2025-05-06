@@ -1,22 +1,11 @@
 package com.example.notes;
 
-import androidx.activity.result.ActivityResult;
-import androidx.activity.result.ActivityResultCallback;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
-
-import android.annotation.SuppressLint;
-import android.app.Activity;
-import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.os.Bundle;
-import android.util.Log;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -31,14 +20,37 @@ import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+
+import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.os.CountDownTimer;
+import android.util.Log;
+
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.reflect.TypeToken;
+
+import org.json.JSONException;
 
 public class MainActivity extends AppCompatActivity {
 
-    static final String TITLE_KEY = "TITLE";
+    private SharedPreferences sharedPref = null;
+    public static final String KEY = "key";
+
+    final ArrayList<CardData> userNotes = new ArrayList<>();
+
+    public static final String TITLE_KEY = "TITLE";
     static final String TITLE_BACK_KEY = "TITLE_BACK";
     static final String DESCRIPTION_KEY = "DESCRIPTION";
     static final String DESCRIPTION_BACK_KEY = "DESCRIPTION_BACK";
@@ -52,26 +64,15 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private MyAdapter adapter;
 
-    public static final String APP_PREFERENCES_TITLE = "Title";
-    public static final String APP_PREFERENCES_DESCRIPTION = "Description";
-
-   /* SharedPreferences titlesSP;
-    SharedPreferences descriptionsSP;*/
-
-    public SharedPreferences spTitles;
-    public SharedPreferences spDescriptions;
-
-
-    public Set<String> titlesSP = new LinkedHashSet<String>();
-    public Set<String> descriptionsSP = new LinkedHashSet<String>();
-
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
+        sharedPref = getPreferences(MODE_PRIVATE);
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -81,6 +82,8 @@ public class MainActivity extends AppCompatActivity {
 
         setSupportActionBar(findViewById(R.id.toolbar));
         initView();
+
+        setSplashScreenLoadingParameters();
 
         getDataFromSharedPreferences();
 
@@ -165,6 +168,7 @@ public class MainActivity extends AppCompatActivity {
             data.updateCardData(position,
                     new CardData(returnTitle, returnDescription/*"Кадр " + position,
                             data.getCardData(position).getDescription())*/));
+            saveSharePreferences(returnTitle, returnDescription);
             adapter.notifyItemChanged(position);
             return true;
         } else if (item.getItemId() == R.id.action_delete) {
@@ -181,11 +185,13 @@ public class MainActivity extends AppCompatActivity {
 
     public void addNote(String title, String description) {
 
+
         Intent intent = new Intent(this, SecondActivity.class);
         intent.putExtra(TITLE_KEY, title);
         intent.putExtra(DESCRIPTION_KEY, description);
 
         mStartForResult.launch(intent);
+
         if (description.equals("Add some text")) {
             data.addCardData(new CardData(returnTitle, returnDescription));
             adapter.notifyItemInserted(data.size() - 1);
@@ -207,66 +213,69 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
                 }
+
             });
 
     public void saveSharePreferences(String returnTitle, String returnDescription) {
-        spTitles = getSharedPreferences(APP_PREFERENCES_TITLE, Context.MODE_PRIVATE);
-        spDescriptions = getSharedPreferences(APP_PREFERENCES_DESCRIPTION, Context.MODE_PRIVATE);
 
-        titlesSP.add(returnTitle);
-        descriptionsSP.add(returnDescription);
+        userNotes.add(new CardData(returnTitle, returnDescription));
 
-        SharedPreferences.Editor e1 = spTitles.edit();
-        e1.putStringSet("title", titlesSP);
-        SharedPreferences.Editor e2 = spDescriptions.edit();
-        e2.putStringSet("description", descriptionsSP);
-        e1.apply();
-        e2.apply();
+        String jsonNote = new GsonBuilder().create().toJson(userNotes);
+        sharedPref.edit().putString(KEY, jsonNote).apply();
+        Toast.makeText(this, "Saved to shared preferences", Toast.LENGTH_SHORT).show();
 
-
-
- /*       titlesSP = getSharedPreferences(APP_PREFERENCES_TITLE, Context.MODE_PRIVATE);
-        descriptionsSP = getSharedPreferences(APP_PREFERENCES_DESCRIPTION, Context.MODE_PRIVATE);
-        SharedPreferences.Editor editorTitle = titlesSP.edit();
-        SharedPreferences.Editor editorDescription = descriptionsSP.edit();
-        editorTitle.putString(APP_PREFERENCES_TITLE, returnTitle);
-        editorDescription.putString(APP_PREFERENCES_DESCRIPTION, returnDescription);
-        editorTitle.apply();
-        editorDescription.apply();*/
     }
 
     public void getDataFromSharedPreferences() {
 
-        /*data.clearCardData();*/
-
-        spTitles = getSharedPreferences(APP_PREFERENCES_TITLE, Context.MODE_PRIVATE);
-        spDescriptions = getSharedPreferences(APP_PREFERENCES_DESCRIPTION, Context.MODE_PRIVATE);
-
-        Set<String> titles = spTitles.getStringSet("strSetKey", new LinkedHashSet<String>());
-        Set<String> descriptions = spDescriptions.getStringSet("strSetKey", new LinkedHashSet<String>());
-
-        Iterator<String> iteratorTitle = titles.iterator();
-        Iterator<String> iteratorDescription = descriptions.iterator();
-
-        while (iteratorTitle.hasNext()) {
-            data.addCardData(new CardData(iteratorTitle.next(), iteratorDescription.next()));
+        String savedNotes = sharedPref.getString(KEY, null);
+        if (savedNotes == null || savedNotes.isEmpty()) {
+            Toast.makeText(this, "Saved notes empty", Toast.LENGTH_SHORT).show();
+        } else {
+            try {
+                Type type = new TypeToken<CardSourceImpl>
+                        /*ArrayList<CardData>>*/() {
+                }.getType();
+                data.addCardData(new GsonBuilder().create().fromJson(savedNotes, type));
+            } catch (JsonSyntaxException e) {
+                Toast.makeText(this, "Error uploading saved notes", Toast.LENGTH_SHORT).show();
+            }
         }
 
+    }
 
 
-        /*data.clearCardData();*//*
+    private void setSplashScreenLoadingParameters() {
+        final Boolean[] isHideSplashScreen = {false};
+        CountDownTimer countDownTimer = new CountDownTimer(5_000, 1_000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+            }
 
-        titlesSP = getSharedPreferences(APP_PREFERENCES_TITLE, Context.MODE_PRIVATE);
-        descriptionsSP = getSharedPreferences(APP_PREFERENCES_DESCRIPTION, Context.MODE_PRIVATE);
-        String title;
-        String description;
+            @Override
+            public void onFinish() {
+                isHideSplashScreen[0] = true;
+            }
+        }.start();
 
-       *//* Set<String> ret = titlesSP.getStringSet(APP_PREFERENCES_TITLE, new HashSet<String>());
-        for(String r : ret) {*//*
-            title = titlesSP.getString(APP_PREFERENCES_TITLE, "");
-            description = descriptionsSP.getString(APP_PREFERENCES_DESCRIPTION, "");
-            data.addCardData(new CardData(title, description));
-       *//* }*/
+
+        // Set up an OnPreDrawListener to the root view.
+        final View content = findViewById(android.R.id.content);
+        content.getViewTreeObserver().addOnPreDrawListener(
+                new ViewTreeObserver.OnPreDrawListener() {
+                    @Override
+                    public boolean onPreDraw() {
+                        // Check whether the initial data is ready.
+                        if (isHideSplashScreen[0]) {
+                            // The content is ready. Start drawing.
+                            content.getViewTreeObserver().removeOnPreDrawListener(this);
+                            return true;
+                        } else {
+                            // The content isn't ready. Suspend.
+                            return false;
+                        }
+                    }
+                });
     }
 }
 
