@@ -21,7 +21,6 @@ public class CardSourceImpl implements CardSource {
         String[] titles = resources.getStringArray(R.array.titles);
         String[] descriptions = resources.getStringArray(R.array.descriptions);
 
-
         for (int i = 0; i < descriptions.length; i++) {
             dataSource.add(new CardData(titles[i], descriptions[i]));
         }

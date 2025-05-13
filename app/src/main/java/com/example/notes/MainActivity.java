@@ -47,19 +47,14 @@ public class MainActivity extends AppCompatActivity {
 
     private SharedPreferences sharedPref = null;
     public static final String KEY = "key";
-
     final ArrayList<CardData> userNotes = new ArrayList<>();
-
     public static final String TITLE_KEY = "TITLE";
     static final String TITLE_BACK_KEY = "TITLE_BACK";
     static final String DESCRIPTION_KEY = "DESCRIPTION";
     static final String DESCRIPTION_BACK_KEY = "DESCRIPTION_BACK";
-
     public String returnTitle = "a";
     public String returnDescription = "b";
-
     private static final int MY_DEFAULT_DURATION = 1000;
-
     private CardSource data;
     private RecyclerView recyclerView;
     private MyAdapter adapter;
@@ -77,15 +72,15 @@ public class MainActivity extends AppCompatActivity {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
-
         });
 
         setSupportActionBar(findViewById(R.id.toolbar));
-        initView();
 
-        setSplashScreenLoadingParameters();
+        if (savedInstanceState == null) {
+            initView();
+            setSplashScreenLoadingParameters();
+        } else getDataFromSharedPreferences();
 
-        getDataFromSharedPreferences();
 
     }
 
@@ -111,11 +106,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initView() {
-
         recyclerView = findViewById(R.id.recycler_view_lines);
         // Получим источник данных для списка
         data = new CardSourceImpl(getResources()).init();
-
         initRecyclerView();
     }
 
@@ -124,7 +117,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Эта установка служит для повышения производительности системы
         recyclerView.setHasFixedSize(true);
-
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
         recyclerView.setLayoutManager(layoutManager);
         adapter = new MyAdapter(data, this);
@@ -146,7 +138,6 @@ public class MainActivity extends AppCompatActivity {
             @SuppressLint("DefaultLocale")
             @Override
             public void onItemClick(View view, int position) {
-                /*Toast.makeText(getApplicationContext(), String.format("Позиция - %d", position), Toast.LENGTH_SHORT).show();*/
             }
         });
     }
@@ -163,13 +154,13 @@ public class MainActivity extends AppCompatActivity {
         int position = adapter.getMenuPosition();
         if (item.getItemId() == R.id.action_update) {
 
-            addNote(data.getCardData(position).getTitle(), data.getCardData(position).getDescription());
+            Intent intent = new Intent(this, SecondActivity.class);
+            intent.putExtra(TITLE_KEY, data.getCardData(position).getTitle());
+            intent.putExtra(DESCRIPTION_KEY, data.getCardData(position).getDescription());
 
-            data.updateCardData(position,
-                    new CardData(returnTitle, returnDescription/*"Кадр " + position,
-                            data.getCardData(position).getDescription())*/));
-            saveSharePreferences(returnTitle, returnDescription);
-            adapter.notifyItemChanged(position);
+            mStartForUpdateNote.launch(intent);
+
+
             return true;
         } else if (item.getItemId() == R.id.action_delete) {
             data.deleteCardData(position);
@@ -180,41 +171,58 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onAddNotePressed(View view) {
+
         addNote("Заметка " + (data.size() + 1), "Add some text");
+
     }
 
     public void addNote(String title, String description) {
-
-
         Intent intent = new Intent(this, SecondActivity.class);
         intent.putExtra(TITLE_KEY, title);
         intent.putExtra(DESCRIPTION_KEY, description);
-
-        mStartForResult.launch(intent);
-
-        if (description.equals("Add some text")) {
-            data.addCardData(new CardData(returnTitle, returnDescription));
-            adapter.notifyItemInserted(data.size() - 1);
-            recyclerView.smoothScrollToPosition(data.size() - 1);
-            saveSharePreferences(returnTitle, returnDescription);
-        }
-
+        mStartForAddNote.launch(intent);
     }
 
-    ActivityResultLauncher<Intent> mStartForResult = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+    //Запуск SecondActivity для добавления новой заметки
+    ActivityResultLauncher<Intent> mStartForAddNote = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
             new ActivityResultCallback<ActivityResult>() {
                 @Override
                 public void onActivityResult(ActivityResult result) {
                     if (result.getResultCode() == Activity.RESULT_OK) {
                         Intent intent = result.getData();
-                        if (intent != null) {
-                            returnTitle = intent.getStringExtra(MainActivity.TITLE_BACK_KEY);
-                            returnDescription = intent.getStringExtra(MainActivity.DESCRIPTION_BACK_KEY);
-                        }
+                        returnTitle = intent.getStringExtra(MainActivity.TITLE_BACK_KEY);
+                        returnDescription = intent.getStringExtra(MainActivity.DESCRIPTION_BACK_KEY);
+
+                        if (data.size() == 0) initView();
+
+                        data.addCardData(new CardData(returnTitle, returnDescription));
+                        saveSharePreferences(returnTitle, returnDescription);
+
+                        adapter.notifyItemInserted(data.size() - 1);
+                        recyclerView.smoothScrollToPosition(data.size() - 1);
                     }
                 }
-
             });
+
+
+    //Запуск SecondActivity для редактирования существующей заметки
+    ActivityResultLauncher<Intent> mStartForUpdateNote = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+            new ActivityResultCallback<ActivityResult>() {
+                @Override
+                public void onActivityResult(ActivityResult result) {
+                    int position = adapter.getMenuPosition();
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        Intent intent = result.getData();
+                        returnTitle = intent.getStringExtra(MainActivity.TITLE_BACK_KEY);
+                        returnDescription = intent.getStringExtra(MainActivity.DESCRIPTION_BACK_KEY);
+
+                        data.updateCardData(position, new CardData(returnTitle, returnDescription));
+                        saveSharePreferences(returnTitle, returnDescription);
+                        adapter.notifyItemChanged(position);
+                    }
+                }
+            });
+
 
     public void saveSharePreferences(String returnTitle, String returnDescription) {
 
@@ -223,7 +231,6 @@ public class MainActivity extends AppCompatActivity {
         String jsonNote = new GsonBuilder().create().toJson(userNotes);
         sharedPref.edit().putString(KEY, jsonNote).apply();
         Toast.makeText(this, "Saved to shared preferences", Toast.LENGTH_SHORT).show();
-
     }
 
     public void getDataFromSharedPreferences() {
@@ -241,7 +248,6 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "Error uploading saved notes", Toast.LENGTH_SHORT).show();
             }
         }
-
     }
 
 
@@ -277,9 +283,11 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
     }
+
+
 }
 
-//startActivityForResult - готовая обработка входящи + кнопка назад (onBackPressed)
+
 //https://metanit.com/java/android/2.11.php
 
 
