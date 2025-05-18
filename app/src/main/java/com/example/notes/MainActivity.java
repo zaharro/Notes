@@ -1,5 +1,9 @@
 package com.example.notes;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -11,7 +15,12 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -22,6 +31,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.List;
 
 import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
@@ -52,8 +62,11 @@ public class MainActivity extends AppCompatActivity {
     static final String TITLE_BACK_KEY = "TITLE_BACK";
     static final String DESCRIPTION_KEY = "DESCRIPTION";
     static final String DESCRIPTION_BACK_KEY = "DESCRIPTION_BACK";
-    public String returnTitle = "a";
-    public String returnDescription = "b";
+
+    private static final String CHANNEL_ID = "CHANNEL_ID";
+    private static final int NOTIFICATION_ID = 42;
+    public String returnTitle;
+    public String returnDescription;
     private static final int MY_DEFAULT_DURATION = 1000;
     private CardSource data;
     private RecyclerView recyclerView;
@@ -80,8 +93,6 @@ public class MainActivity extends AppCompatActivity {
             initView();
             setSplashScreenLoadingParameters();
         } else getDataFromSharedPreferences();
-
-
     }
 
 
@@ -196,7 +207,7 @@ public class MainActivity extends AppCompatActivity {
                         if (data.size() == 0) initView();
 
                         data.addCardData(new CardData(returnTitle, returnDescription));
-                        saveSharePreferences(returnTitle, returnDescription);
+                        saveSharedPreferences(returnTitle, returnDescription);
 
                         adapter.notifyItemInserted(data.size() - 1);
                         recyclerView.smoothScrollToPosition(data.size() - 1);
@@ -217,20 +228,21 @@ public class MainActivity extends AppCompatActivity {
                         returnDescription = intent.getStringExtra(MainActivity.DESCRIPTION_BACK_KEY);
 
                         data.updateCardData(position, new CardData(returnTitle, returnDescription));
-                        saveSharePreferences(returnTitle, returnDescription);
+                        saveSharedPreferences(returnTitle, returnDescription);
                         adapter.notifyItemChanged(position);
                     }
                 }
             });
 
 
-    public void saveSharePreferences(String returnTitle, String returnDescription) {
+    public void saveSharedPreferences(String returnTitle, String returnDescription) {
 
         userNotes.add(new CardData(returnTitle, returnDescription));
 
         String jsonNote = new GsonBuilder().create().toJson(userNotes);
         sharedPref.edit().putString(KEY, jsonNote).apply();
         Toast.makeText(this, "Saved to shared preferences", Toast.LENGTH_SHORT).show();
+        showNotification();
     }
 
     public void getDataFromSharedPreferences() {
@@ -240,8 +252,8 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Saved notes empty", Toast.LENGTH_SHORT).show();
         } else {
             try {
-                Type type = new TypeToken<CardSourceImpl>
-                        /*ArrayList<CardData>>*/() {
+// final ArrayList<CardData> userNotes = new ArrayList<>();
+                Type type = new TypeToken<CardSourceImpl>() {
                 }.getType();
                 data.addCardData(new GsonBuilder().create().fromJson(savedNotes, type));
             } catch (JsonSyntaxException e) {
@@ -253,7 +265,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void setSplashScreenLoadingParameters() {
         final Boolean[] isHideSplashScreen = {false};
-        CountDownTimer countDownTimer = new CountDownTimer(5_000, 1_000) {
+        CountDownTimer countDownTimer = new CountDownTimer(2_000, 1_000) {
             @Override
             public void onTick(long millisUntilFinished) {
             }
@@ -284,10 +296,64 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
+    private void showNotification() {
+
+        // Создаем NotificationChannel, но это делается только для API 26+
+        // Потому что NotificationChannel -- это новый класс и его нет в support library
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            createNotificationChannel();
+        }
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID);
+        // Все цветные иконки отображаются только в оттенках серого
+        builder.setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setContentTitle("Notes")
+                .setContentText("New note has been created")
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ActivityCompat.requestPermissions(
+                        this,
+                        new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                        NOTIFICATION_ID); // константа вашего выбора
+            }
+            return;
+
+        }
+        // Display the notification
+        NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, builder.build());
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == NOTIFICATION_ID && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            // Пользователь разрешил показывать уведомления
+            showNotification(); // Можно показать уведомление повторно
+        } else {
+            // Пользователь отказался давать разрешение
+            Toast.makeText(this, "Разрешение на уведомления не предоставлено.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    private void createNotificationChannel() {
+        String name = "Name";
+        String descriptionText = "Description";
+        int importance = NotificationManager.IMPORTANCE_DEFAULT;
+        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+        channel.setDescription(descriptionText);
+
+        // Регистрируем канал в системе
+        NotificationManager notificationManager = getSystemService(NotificationManager.class);
+        notificationManager.createNotificationChannel(channel);
+    }
 
 }
 
-
+//https://www.geeksforgeeks.org/create-an-expandable-notification-containing-some-text-in-android/
 //https://metanit.com/java/android/2.11.php
 
 

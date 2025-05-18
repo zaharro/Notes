@@ -34,6 +34,8 @@ android {
 
 dependencies {
 
+    
+
     implementation(libs.gson)
     implementation(libs.appcompat)
     implementation(libs.material)
@@ -45,4 +47,7 @@ dependencies {
 
     //SplashScreen
     implementation("androidx.core:core-splashscreen:1.0.0")
+
+    implementation ("androidx.core:core-ktx:1.16.0")
+
 }
